@@ -1,11 +1,165 @@
 ---
-import Welcome from '../components/Welcome.astro';
 import Layout from '../layouts/Layout.astro';
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+function formatDateTime(dateString) {
+  if (!dateString) return '时间未知';
+  
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return dateString;
+  
+  // 输出格式：2024-01-15 14:30:00
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
+// 获取所有文章
+const modules = import.meta.glob('../posts/*.md', { eager: true });
+
+// 👇 在这里调用格式化函数
+const allPosts = Object.entries(modules).map(([filepath, module]) => {
+  const slug = module.frontmatter?.slug || filepath.split('/').pop().replace('.md', '');
+  
+  return {
+    url: `/posts/${slug}`,
+    frontmatter: module.frontmatter,
+    formattedDateTime: formatDateTime(module.frontmatter?.date)  // ← 在这里调用
+  };
+});
+
+// 按日期排序
+const sortedPosts = allPosts.sort((a, b) => {
+  const dateA = a.frontmatter?.date ? new Date(a.frontmatter.date) : new Date(0);
+  const dateB = b.frontmatter?.date ? new Date(b.frontmatter.date) : new Date(0);
+  return dateB - dateA;
+});
 ---
 
-<Layout>
-	<Welcome />
+<Layout title="文章列表">
+  <div class="search-section">
+    <input 
+      type="text" 
+      id="searchInput" 
+      placeholder="🔍 搜索文章标题或描述..." 
+      class="search-input"
+    />
+  </div>
+
+  <div class="card-list" id="cardList">
+    {sortedPosts.map((post) => (
+      <a href={post.url} class="card">
+        <h2 class="card-title">{post.frontmatter?.title || post.slug}</h2>
+        <p class="card-description">{post.frontmatter?.description || '暂无描述'}</p>
+        <div class="card-meta">
+        📅 {post.formattedDateTime}  <!-- ← 显示格式化后的时间 -->
+        </div>
+      </a>
+    ))}
+  </div>
+
+  <div id="noResults" class="no-results" style="display: none;">
+    😅 没有找到相关文章
+  </div>
 </Layout>
+
+<script>
+  const searchInput = document.getElementById('searchInput');
+  const noResults = document.getElementById('noResults');
+  
+  function filterCards() {
+    const searchTerm = searchInput.value.toLowerCase();
+    const cards = document.querySelectorAll('.card');
+    let hasResults = false;
+    
+    cards.forEach(card => {
+      const title = card.querySelector('.card-title')?.textContent.toLowerCase() || '';
+      const description = card.querySelector('.card-description')?.textContent.toLowerCase() || '';
+      
+      if (title.includes(searchTerm) || description.includes(searchTerm)) {
+        card.style.display = 'block';
+        hasResults = true;
+      } else {
+        card.style.display = 'none';
+      }
+    });
+    
+    noResults.style.display = hasResults ? 'none' : 'block';
+  }
+  
+  searchInput.addEventListener('input', filterCards);
+</script>
+
+<style>
+  .search-section {
+    margin-bottom: 2rem;
+  }
+  
+  .search-input {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1rem;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+  }
+  
+  .search-input:focus {
+    outline: none;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+  }
+  
+  .card-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  .card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-decoration: none;
+    color: #333;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    display: block;
+  }
+  
+  .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+  }
+  
+  .card-title {
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+    color: #667eea;
+  }
+  
+  .card-description {
+    color: #666;
+    line-height: 1.5;
+    margin-bottom: 1rem;
+  }
+  
+  .card-meta {
+    font-size: 0.875rem;
+    color: #999;
+  }
+  
+  .no-results {
+    text-align: center;
+    padding: 3rem;
+    background: white;
+    border-radius: 8px;
+    color: #999;
+    font-size: 1.1rem;
+  }
+</style>
